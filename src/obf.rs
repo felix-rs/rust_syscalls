@@ -1,4 +1,5 @@
 #[macro_export]
+#[doc(hidden)]
 macro_rules! obf {
     ($s:expr) => {{
         static HASH: u32 = $crate::obf::dbj2_hash_str($s);
@@ -21,11 +22,11 @@ pub const fn dbj2_hash(buffer: &[u8]) -> u32 {
             iter += 1;
             continue;
         }
-        if cur >= ('a' as u8) {
+        if cur >= b'a' {
             cur -= 0x20;
         }
         hsh = ((hsh << 5).wrapping_add(hsh)) + cur as u32;
         iter += 1;
     }
-    return hsh;
+    hsh
 }

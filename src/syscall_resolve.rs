@@ -4,7 +4,7 @@ use core::ptr::addr_of;
 use core::slice;
 
 use ntapi::ntldr::PLDR_DATA_TABLE_ENTRY;
-use ntapi::ntpebteb::{PPEB, TEB};
+use ntapi::ntpebteb::TEB;
 use ntapi::ntpsapi::PPEB_LDR_DATA;
 use ntapi::FIELD_OFFSET;
 
@@ -17,7 +17,8 @@ use winapi::um::winnt::{
 use crate::obf::dbj2_hash;
 
 #[cfg(target_arch = "x86_64")]
-pub unsafe fn __readgsqword(offset: u32) -> u64 {
+#[doc(hidden)]
+unsafe fn __readgsqword(offset: u32) -> u64 {
     let out: u64;
     asm!(
     "mov {}, gs:[{:e}]",
@@ -29,7 +30,8 @@ pub unsafe fn __readgsqword(offset: u32) -> u64 {
 }
 
 #[cfg(target_arch = "x86")]
-pub unsafe fn __readfsdword(offset: u32) -> u32 {
+#[doc(hidden)]
+unsafe fn __readfsdword(offset: u32) -> u32 {
     let out: u32;
     asm!(
     "mov {:e}, fs:[{:e}]",
@@ -41,32 +43,26 @@ pub unsafe fn __readfsdword(offset: u32) -> u32 {
 }
 
 #[cfg(target_arch = "x86")]
-pub unsafe fn is_wow64() -> bool {
-    let addr = __readfsdword(0xC0);
-    if addr != 0 {
-        return true;
-    }
-    false
+fn is_wow64() -> bool {
+    let addr = unsafe { __readfsdword(0xC0) };
+    addr != 0
 }
 
-pub unsafe fn nt_current_teb() -> *mut TEB {
+fn nt_current_teb() -> *mut TEB {
     use winapi::um::winnt::NT_TIB;
     let teb_offset = FIELD_OFFSET!(NT_TIB, _Self) as u32;
+
     #[cfg(target_arch = "x86_64")]
-    {
+    unsafe {
         __readgsqword(teb_offset) as *mut TEB
     }
     #[cfg(target_arch = "x86")]
-    {
+    unsafe {
         __readfsdword(teb_offset) as *mut TEB
     }
 }
 
-pub unsafe fn nt_current_peb() -> PPEB {
-    (*nt_current_teb()).ProcessEnvironmentBlock
-}
-
-pub fn get_cstr_len(pointer: *const char) -> usize {
+fn get_cstr_len(pointer: *const char) -> usize {
     let mut tmp: u64 = pointer as u64;
     unsafe {
         while *(tmp as *const u8) != 0 {
@@ -86,7 +82,7 @@ fn get_module_addr(hash: ULONG) -> PVOID {
     let mut mod_len: usize;
 
     unsafe {
-        ldr = (*nt_current_peb()).Ldr;
+        ldr = (*(*nt_current_teb()).ProcessEnvironmentBlock).Ldr;
         header = addr_of!((*ldr).InLoadOrderModuleList) as PLIST_ENTRY;
         entry = (*header).Flink;
 
@@ -107,7 +103,6 @@ fn get_module_addr(hash: ULONG) -> PVOID {
 }
 
 fn get_function_addr(mdoule_addr: PVOID, hash: u32) -> PVOID {
-    let dos_header: PIMAGE_DOS_HEADER;
     let nt_header: PIMAGE_NT_HEADERS;
     let data_dir: PIMAGE_DATA_DIRECTORY;
     let exp_dir: PIMAGE_EXPORT_DIRECTORY;
@@ -120,7 +115,7 @@ fn get_function_addr(mdoule_addr: PVOID, hash: u32) -> PVOID {
     let name_list: &[u32];
     let ord_list: &[u16];
 
-    dos_header = mdoule_addr as PIMAGE_DOS_HEADER;
+    let dos_header: PIMAGE_DOS_HEADER = mdoule_addr as PIMAGE_DOS_HEADER;
 
     unsafe {
         nt_header = (dos_header as u64 + (*dos_header).e_lfanew as u64) as PIMAGE_NT_HEADERS;
@@ -157,12 +152,10 @@ fn get_function_addr(mdoule_addr: PVOID, hash: u32) -> PVOID {
 #[cfg(target_arch = "x86_64")]
 #[cfg(all(feature = "direct", not(feature = "indirect")))]
 pub fn get_ssn(hash: u32) -> u16 {
-    let ntdll_addr: PVOID;
-    let funct_addr: PVOID;
     let ssn: u16;
 
-    ntdll_addr = get_module_addr(crate::obf!("ntdll.dll"));
-    funct_addr = get_function_addr(ntdll_addr, hash);
+    let ntdll_addr: PVOID = get_module_addr(crate::obf!("ntdll.dll"));
+    let funct_addr: PVOID = get_function_addr(ntdll_addr, hash);
     unsafe {
         ssn = *((funct_addr as u64 + 4) as *const u16);
     }
@@ -179,6 +172,7 @@ pub fn get_ssn(hash: u32) -> (u16, u64) {
 
     ntdll_addr = get_module_addr(crate::obf!("ntdll.dll"));
     funct_addr = get_function_addr(ntdll_addr, hash);
+
     unsafe {
         ssn = *((funct_addr as u64 + 4) as *const u16);
     }
