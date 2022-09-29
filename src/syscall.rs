@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
-use std::arch::global_asm;
+use core::arch::global_asm;
 
-#[cfg(all(feature = "_DIRECT_", not(feature = "_INDIRECT_")))]
+#[cfg(all(feature = "direct", not(feature = "indirect")))]
 #[macro_export]
 macro_rules! syscall {
     ($function_name:expr, $($y:expr), +) => {
@@ -12,11 +12,11 @@ macro_rules! syscall {
             let _ = $y;
             cnt += 1;
         )+
-        crate::syscall::do_syscall(ssn, cnt, $($y), +)
+        $crate::syscall::do_syscall(ssn, cnt, $($y), +)
     }}
 }
 
-#[cfg(all(feature = "_INDIRECT_", not(feature = "_DIRECT_")))]
+#[cfg(all(feature = "indirect", not(feature = "direct")))]
 #[macro_export]
 macro_rules! syscall {
     ($function_name:expr, $($y:expr), +) => {
@@ -27,13 +27,14 @@ macro_rules! syscall {
             let _ = $y;
             cnt += 1;
         )+
-        crate::syscall::do_syscall(ssn, addr, cnt, $($y), +)
+        $crate::syscall::do_syscall(ssn, addr, cnt, $($y), +)
     }}
 }
 
 #[cfg(target_arch = "x86_64")]
-#[cfg(all(feature = "_DIRECT_", not(feature = "_INDIRECT_")))]
-global_asm!("
+#[cfg(all(feature = "direct", not(feature = "indirect")))]
+global_asm!(
+    "
 .global do_syscall
 
 .section .text
@@ -66,11 +67,13 @@ skip:
     mov rdi, [rsp - 0x10]
 
     ret
-");
+"
+);
 
 #[cfg(target_arch = "x86_64")]
-#[cfg(all(feature = "_INDIRECT_", not(feature = "_DIRECT_")))]
-global_asm!("
+#[cfg(all(feature = "indirect", not(feature = "direct")))]
+global_asm!(
+    "
 .global do_syscall
 
 .section .text
@@ -105,11 +108,13 @@ skip:
     mov r12, [rsp - 0x18]
 
     jmp rcx
-");
+"
+);
 
 #[cfg(target_arch = "x86")]
-#[cfg(all(feature = "_DIRECT_", not(feature = "_INDIRECT_")))]
-global_asm!("
+#[cfg(all(feature = "direct", not(feature = "indirect")))]
+global_asm!(
+    "
 .global _do_syscall
 
 .section .text
@@ -144,11 +149,13 @@ sysenter:
     mov edx,esp
     sysenter
 
-");
+"
+);
 
 #[cfg(target_arch = "x86")]
-#[cfg(all(feature = "_INDIRECT_", not(feature = "_DIRECT_")))]
-global_asm!("
+#[cfg(all(feature = "indirect", not(feature = "direct")))]
+global_asm!(
+    "
 .global _do_syscall
 
 .section .text
@@ -195,48 +202,29 @@ native:
     ret
 
 is_wow64:
-");
-
-
+"
+);
 
 #[cfg(target_arch = "x86_64")]
-#[cfg(all(feature = "_DIRECT_", not(feature = "_INDIRECT_")))]
+#[cfg(all(feature = "direct", not(feature = "indirect")))]
 extern "C" {
-    pub fn do_syscall(
-        ssn: u16,
-        n_args: u32,
-        ...
-    ) -> i32;
+    pub fn do_syscall(ssn: u16, n_args: u32, ...) -> i32;
 }
 
 #[cfg(target_arch = "x86_64")]
-#[cfg(all(feature = "_INDIRECT_", not(feature = "_DIRECT_")))]
+#[cfg(all(feature = "indirect", not(feature = "direct")))]
 extern "C" {
-    pub fn do_syscall(
-        ssn: u16,
-        syscall_addr: u64,
-        n_args: u32,
-        ...
-    ) -> i32;
+    pub fn do_syscall(ssn: u16, syscall_addr: u64, n_args: u32, ...) -> i32;
 }
 
 #[cfg(target_arch = "x86")]
-#[cfg(all(feature = "_DIRECT_", not(feature = "_INDIRECT_")))]
+#[cfg(all(feature = "direct", not(feature = "indirect")))]
 extern "C" {
-    pub fn do_syscall(
-        ssn: u16,
-        n_args: u32,
-        ...
-    ) -> i32;
+    pub fn do_syscall(ssn: u16, n_args: u32, ...) -> i32;
 }
 
 #[cfg(target_arch = "x86")]
-#[cfg(all(feature = "_INDIRECT_", not(feature = "_DIRECT_")))]
+#[cfg(all(feature = "indirect", not(feature = "direct")))]
 extern "C" {
-    pub fn do_syscall(
-        ssn: u16,
-        n_args: u32,
-        syscall_addr: u32,
-        ...
-    ) -> i32;
+    pub fn do_syscall(ssn: u16, n_args: u32, syscall_addr: u32, ...) -> i32;
 }

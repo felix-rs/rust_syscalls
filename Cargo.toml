@@ -6,9 +6,10 @@ authors = ["Yxel <https://github.com/janoglezcampos>"]
 repository = "https://github.com/janoglezcampos/rust_syscalls"
 
 [features]
-_INDIRECT_ = []
-_DIRECT_ = []
+default = ["direct"]
+indirect = []
+direct = []
 
 [dependencies]
-winapi = {version = "0.3.9", features = ["ntdef", "winnt"]}
-ntapi = "0.3.7"
+winapi = { version = "0.3.9", features = ["ntdef", "minwindef", "winnt"] }
+ntapi = "0.4.0"
